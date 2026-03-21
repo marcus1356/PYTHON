@@ -1,0 +1,15 @@
+[run]
+source = app
+omit =
+    */alembic/*
+    app/main.py
+
+[report]
+show_missing = true
+skip_covered = false
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise NotImplementedError
+    if TYPE_CHECKING:
+    @abstractmethod

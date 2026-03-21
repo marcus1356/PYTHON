@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Release Notes — AI Detector</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3347;
+      --accent: #6366f1;
+      --accent-dim: #3730a3;
+      --human: #22c55e;
+      --yellow: #f59e0b;
+      --red: #ef4444;
+      --blue: #60a5fa;
+      --purple: #a78bfa;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --radius: 10px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; line-height: 1.6; }
+
+    /* ── Header ── */
+    .top-bar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; }
+    .top-bar h1 { font-size: 18px; font-weight: 700; }
+    .top-bar h1 span { color: var(--accent); }
+    .top-links { display: flex; gap: 12px; }
+    .top-links a { color: var(--muted); text-decoration: none; font-size: 13px; padding: 5px 10px; border: 1px solid var(--border); border-radius: 6px; transition: color .15s, border-color .15s; }
+    .top-links a:hover { color: var(--accent); border-color: var(--accent); }
+
+    /* ── Layout ── */
+    .container { max-width: 860px; margin: 0 auto; padding: 40px 24px 80px; }
+
+    .page-title { font-size: 30px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 6px; }
+    .page-subtitle { color: var(--muted); font-size: 14px; margin-bottom: 48px; }
+
+    /* ── Timeline ── */
+    .timeline { position: relative; padding-left: 32px; }
+    .timeline::before { content: ''; position: absolute; left: 7px; top: 8px; bottom: 0; width: 2px; background: var(--border); border-radius: 2px; }
+
+    .release { position: relative; margin-bottom: 48px; }
+    .release::before { content: ''; position: absolute; left: -28px; top: 6px; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); border: 2px solid var(--bg); box-shadow: 0 0 0 2px var(--accent); }
+    .release.minor::before { background: var(--surface2); border-color: var(--border); box-shadow: none; }
+
+    /* ── Release header ── */
+    .release-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+    .version-badge { font-size: 20px; font-weight: 800; letter-spacing: -0.3px; color: var(--text); }
+    .version-badge.latest::after { content: 'LATEST'; font-size: 10px; font-weight: 700; background: var(--accent); color: #fff; padding: 2px 7px; border-radius: 999px; margin-left: 8px; vertical-align: middle; letter-spacing: .5px; }
+    .release-date { font-size: 12px; color: var(--muted); background: var(--surface2); padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border); }
+    .release-name { font-size: 13px; color: var(--muted); font-style: italic; }
+
+    /* ── Release body ── */
+    .release-body { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+    .release-summary { padding: 16px 20px; border-bottom: 1px solid var(--border); font-size: 14px; color: var(--text); line-height: 1.7; }
+
+    /* ── Change groups ── */
+    .change-group { padding: 14px 20px; border-bottom: 1px solid var(--border); }
+    .change-group:last-child { border-bottom: none; }
+    .group-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+    .group-label.feat    { color: var(--human); }
+    .group-label.fix     { color: var(--red); }
+    .group-label.infra   { color: var(--blue); }
+    .group-label.test    { color: var(--purple); }
+    .group-label.docs    { color: var(--yellow); }
+    .group-label.perf    { color: #fb923c; }
+
+    .change-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+    .change-list li { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: var(--text); }
+    .change-list li::before { content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-top: 6px; flex-shrink: 0; }
+    .feat   .change-list li::before { background: var(--human); }
+    .fix    .change-list li::before { background: var(--red); }
+    .infra  .change-list li::before { background: var(--blue); }
+    .test   .change-list li::before { background: var(--purple); }
+    .docs   .change-list li::before { background: var(--yellow); }
+    .perf   .change-list li::before { background: #fb923c; }
+
+    .tag { display: inline-block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; padding: 1px 6px; border-radius: 4px; margin-left: 4px; }
+    .tag-breaking { background: #7f1d1d; color: var(--red); }
+    .tag-api     { background: #1e3a5f; color: var(--blue); }
+    .tag-db      { background: #14532d; color: var(--human); }
+
+    /* ── Stats bar ── */
+    .stats-bar { display: flex; gap: 20px; padding: 12px 20px; background: var(--surface2); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+    .stat { display: flex; flex-direction: column; align-items: center; }
+    .stat-num { font-size: 20px; font-weight: 800; color: var(--accent); }
+    .stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<div class="top-bar">
+  <h1>AI <span>Detector</span></h1>
+  <div class="top-links">
+    <a href="/sandbox">🧪 Sandbox</a>
+    <a href="/docs">📄 Swagger</a>
+    <a href="/health">💚 Health</a>
+  </div>
+</div>
+
+<div class="container">
+  <h1 class="page-title">Release Notes</h1>
+  <p class="page-subtitle">Histórico de versões da plataforma AI Detector.</p>
+
+  <div class="timeline">
+
+    <!-- ══════════════════════════════════════════════════════ v1.0.0 -->
+    <div class="release">
+      <div class="release-header">
+        <span class="version-badge latest">v1.0.0</span>
+        <span class="release-date">21 mar 2026</span>
+        <span class="release-name">Foundation</span>
+      </div>
+      <div class="release-body">
+
+        <div class="stats-bar">
+          <div class="stat"><span class="stat-num">8</span><span class="stat-label">Endpoints</span></div>
+          <div class="stat"><span class="stat-num">65</span><span class="stat-label">Testes</span></div>
+          <div class="stat"><span class="stat-num">87%</span><span class="stat-label">Cobertura</span></div>
+          <div class="stat"><span class="stat-num">5</span><span class="stat-label">Heurísticas</span></div>
+          <div class="stat"><span class="stat-num">SQLite</span><span class="stat-label">Banco</span></div>
+        </div>
+
+        <div class="release-summary">
+          Lançamento inicial da plataforma. Estrutura completa de backend para detecção de conteúdo gerado por IA,
+          com motor heurístico de análise, API REST versionada, persistência assíncrona e suite de testes abrangente.
+        </div>
+
+        <div class="change-group feat">
+          <div class="group-label feat">✦ Funcionalidades</div>
+          <ul class="change-list">
+            <li>API REST completa para submissão e análise de textos <span class="tag tag-api">API</span></li>
+            <li>Motor heurístico <code>heuristic-v1</code> com 5 métricas: comprimento médio de frase, riqueza vocabular, burstiness, densidade de pontuação e comprimento médio de palavra</li>
+            <li>Veredicto em 3 níveis: <strong>human</strong> (&lt;0.40), <strong>uncertain</strong> (0.40–0.60), <strong>ai</strong> (&gt;0.60)</li>
+            <li>Confiança da predição em 3 níveis: low, medium, high</li>
+            <li>Re-análise forçada via parâmetro <code>force_reanalyze=true</code></li>
+            <li>Paginação e filtros por status e fonte na listagem de submissions</li>
+            <li>Sandbox interativo para testes manuais via browser</li>
+          </ul>
+        </div>
+
+        <div class="change-group infra">
+          <div class="group-label infra">⬡ Infraestrutura</div>
+          <ul class="change-list">
+            <li>FastAPI 0.115 com lifespan moderno (substituiu <code>@on_event</code>)</li>
+            <li>SQLAlchemy 2.0 totalmente assíncrono via <code>aiosqlite</code> <span class="tag tag-db">DB</span></li>
+            <li>Alembic configurado para migrações de schema</li>
+            <li>Arquitetura em camadas: Endpoints → Services → Repositories → Database</li>
+            <li>Injeção de dependências via <code>Annotated[AsyncSession, Depends(get_db)]</code></li>
+            <li>CORS habilitado para todos os origens (ambiente de desenvolvimento)</li>
+          </ul>
+        </div>
+
+        <div class="change-group test">
+          <div class="group-label test">◎ Testes</div>
+          <ul class="change-list">
+            <li>65 testes automatizados cobrindo endpoints, serviços, schemas e heurísticas</li>
+            <li>Banco SQLite em memória para isolamento total entre testes</li>
+            <li>Dependency override do FastAPI para injetar sessão de teste</li>
+            <li>Cobertura de 87% mensurada com <code>pytest-cov</code></li>
+            <li>Relatório HTML de cobertura gerado em <code>htmlcov/</code></li>
+            <li>4 suítes independentes: endpoints, serviço, schemas, heurísticas</li>
+          </ul>
+        </div>
+
+        <div class="change-group docs">
+          <div class="group-label docs">📄 Documentação</div>
+          <ul class="change-list">
+            <li>Swagger UI disponível em <code>/docs</code></li>
+            <li>ReDoc disponível em <code>/redoc</code></li>
+            <li>Endpoint de health check em <code>/health</code></li>
+            <li>Esta página de release notes em <code>/changelog</code></li>
+          </ul>
+        </div>
+
+      </div>
+    </div>
+    <!-- ── fim v1.0.0 ── -->
+
+    <!-- ══════════════════════════════════════════════════════ Roadmap -->
+    <div class="release minor">
+      <div class="release-header">
+        <span class="version-badge" style="color:var(--muted)">v1.1.0</span>
+        <span class="release-date" style="color:var(--muted)">Em desenvolvimento</span>
+        <span class="release-name">Roadmap</span>
+      </div>
+      <div class="release-body">
+        <div class="change-group feat">
+          <div class="group-label feat">✦ Planejado</div>
+          <ul class="change-list">
+            <li>Autenticação via API Key ou JWT</li>
+            <li>Análise assíncrona com fila de tarefas (Celery / ARQ)</li>
+            <li>Modelo de ML para substituir heurísticas (<code>ml-v1</code>)</li>
+            <li>Suporte a múltiplos idiomas</li>
+            <li>Dashboard de métricas agregadas</li>
+            <li>Migração para PostgreSQL em produção</li>
+            <li>Rate limiting por cliente</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

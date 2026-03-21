@@ -1,11 +1,18 @@
 from contextlib import asynccontextmanager
 from collections.abc import AsyncGenerator
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 from app.api.v1.router import api_router
 from app.config import get_settings
 from app.core.database import Base, engine
+
+_STATIC = Path(__file__).resolve().parent.parent / "static"
+_SANDBOX_HTML = _STATIC / "index.html"
+_CHANGELOG_HTML = _STATIC / "changelog.html"
 
 settings = get_settings()
 
@@ -34,7 +41,25 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(api_router, prefix=settings.api_v1_prefix)
+
+@app.get("/sandbox", include_in_schema=False)
+async def sandbox():
+    """Frontend sandbox para testar a API."""
+    return FileResponse(_SANDBOX_HTML, media_type="text/html")
+
+
+@app.get("/changelog", include_in_schema=False)
+async def changelog():
+    """Página de release notes."""
+    return FileResponse(_CHANGELOG_HTML, media_type="text/html")
 
 
 @app.get("/health", tags=["health"])
