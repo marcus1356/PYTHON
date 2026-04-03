@@ -10,6 +10,15 @@ class Settings(BaseSettings):
     app_port: int = 8002
     database_url: str = "sqlite+aiosqlite:///./ai_detector.db"
 
+    # Claude API — deixe vazio para desabilitar o fallback para Claude
+    anthropic_api_key: str = ""
+
+    # Zona de incerteza do ML que ativa o fallback para Claude (texto)
+    claude_confidence_threshold: float = 0.15  # |score - 0.5| < threshold → chama Claude
+
+    # Quantos exemplos novos acumulam antes de disparar retrain do Random Forest
+    retrain_threshold: int = 50
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 
