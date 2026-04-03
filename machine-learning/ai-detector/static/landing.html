@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Detector — Verifique se um texto foi escrito por humanos</title>
+  <meta name="description" content="Cole qualquer texto e descubra em segundos se foi gerado por IA. Para agências criativas, profissionais e equipes.">
+  <style>
+    :root {
+      --bg: #0a0c14;
+      --surface: #12141f;
+      --surface2: #1a1d2e;
+      --border: #252840;
+      --accent: #6366f1;
+      --accent-light: #818cf8;
+      --accent-glow: rgba(99,102,241,0.12);
+      --human: #22c55e;
+      --uncertain: #f59e0b;
+      --ai: #ef4444;
+      --text: #e2e8f0;
+      --text-secondary: #94a3b8;
+      --muted: #475569;
+      --radius: 12px;
+      --radius-lg: 18px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, 'Segoe UI', system-ui, sans-serif;
+      font-size: 15px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(10,12,20,0.88);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 32px;
+      height: 58px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .nav-logo { font-size: 17px; font-weight: 700; letter-spacing: -0.4px; color: var(--text); text-decoration: none; }
+    .nav-logo em { font-style: normal; color: var(--accent-light); }
+    .nav-links { display: flex; gap: 4px; align-items: center; }
+    .nav-link {
+      color: var(--text-secondary); text-decoration: none; font-size: 14px; font-weight: 500;
+      padding: 6px 14px; border-radius: 8px; transition: color .15s, background .15s;
+    }
+    .nav-link:hover { color: var(--text); background: var(--surface); }
+    .nav-cta {
+      background: var(--accent); color: #fff; text-decoration: none;
+      padding: 7px 18px; border-radius: 8px; font-size: 14px; font-weight: 600;
+      border: none; cursor: pointer; transition: background .15s;
+    }
+    .nav-cta:hover { background: var(--accent-light); }
+
+    /* ── HERO ── */
+    .hero {
+      padding: 72px 24px 48px;
+      text-align: center;
+      max-width: 780px;
+      margin: 0 auto;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 7px;
+      background: var(--accent-glow);
+      border: 1px solid rgba(99,102,241,0.28);
+      color: var(--accent-light);
+      padding: 5px 16px; border-radius: 999px;
+      font-size: 12px; font-weight: 600; letter-spacing: .3px;
+      margin-bottom: 26px;
+    }
+    .hero h1 {
+      font-size: clamp(30px, 5.5vw, 54px);
+      font-weight: 800; letter-spacing: -1.5px; line-height: 1.08;
+      color: #f1f5f9; margin-bottom: 20px;
+    }
+    .hero h1 strong {
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--accent-light) 0%, #a78bfa 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero p {
+      font-size: 18px; color: var(--text-secondary); line-height: 1.7;
+      max-width: 540px; margin: 0 auto 40px;
+    }
+
+    /* ── ANALYZER ── */
+    #analyzer {
+      max-width: 720px; margin: 0 auto;
+      padding: 0 24px 72px;
+    }
+    .analyzer-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      box-shadow: 0 0 0 1px rgba(99,102,241,0.06), 0 24px 64px rgba(0,0,0,.45);
+    }
+    .analyzer-top {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 10px;
+    }
+    .analyzer-top label { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+    #char-count { font-size: 12px; color: var(--muted); }
+    .analyzer-textarea {
+      width: 100%; min-height: 156px; resize: vertical;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 10px; color: var(--text);
+      padding: 13px 15px; font-size: 14px; font-family: inherit;
+      line-height: 1.65; outline: none;
+      transition: border-color .15s;
+    }
+    .analyzer-textarea:focus { border-color: var(--accent); }
+    .analyzer-textarea::placeholder { color: var(--muted); }
+    .analyzer-bottom {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-top: 14px; gap: 12px; flex-wrap: wrap;
+    }
+    .analyzer-hint { font-size: 12px; color: var(--muted); }
+    .btn-analyze {
+      background: var(--accent); color: #fff; border: none;
+      padding: 11px 26px; border-radius: 9px;
+      font-size: 14px; font-weight: 700;
+      display: flex; align-items: center; gap: 8px;
+      cursor: pointer; transition: background .15s, transform .1s;
+      white-space: nowrap;
+    }
+    .btn-analyze:hover:not(:disabled) { background: var(--accent-light); }
+    .btn-analyze:active { transform: scale(.97); }
+    .btn-analyze:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* ── RESULT ── */
+    #result-wrap { display: none; margin-top: 16px; animation: fadeUp .3s ease; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    .result-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 26px;
+    }
+    .result-header { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 22px; }
+    .verdict-pill {
+      padding: 5px 14px; border-radius: 999px;
+      font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+      flex-shrink: 0; margin-top: 3px;
+    }
+    .pill-human    { background: #14532d; color: #4ade80; border: 1px solid #166534; }
+    .pill-uncertain{ background: #78350f; color: #fbbf24; border: 1px solid #92400e; }
+    .pill-ai       { background: #7f1d1d; color: #f87171; border: 1px solid #991b1b; }
+    .verdict-text h3 { font-size: 20px; font-weight: 700; color: var(--text); }
+    .verdict-text p  { font-size: 13px; color: var(--text-secondary); margin-top: 3px; }
+
+    .prob-wrap { margin-bottom: 22px; }
+    .prob-number {
+      font-size: 48px; font-weight: 800; letter-spacing: -2px;
+      line-height: 1; margin-bottom: 12px;
+    }
+    .prob-labels {
+      display: flex; justify-content: space-between;
+      font-size: 11px; color: var(--muted); margin-bottom: 7px;
+    }
+    .prob-track {
+      height: 10px; background: var(--surface2);
+      border-radius: 999px; overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .prob-fill {
+      height: 100%; border-radius: 999px;
+      transition: width .9s cubic-bezier(.4,0,.2,1);
+    }
+    .confidence-row {
+      display: flex; align-items: center; gap: 6px;
+      margin-top: 10px; font-size: 12px; color: var(--muted);
+    }
+    .confidence-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--text-secondary); flex-shrink: 0;
+    }
+
+    .metrics-label {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .8px; color: var(--muted);
+      margin-bottom: 12px;
+    }
+    .metrics-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    }
+    @media (max-width: 480px) { .metrics-grid { grid-template-columns: 1fr; } }
+
+    .metric-cell {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 14px;
+    }
+    .metric-cell .mc-label { font-size: 11px; color: var(--muted); margin-bottom: 3px; }
+    .metric-cell .mc-val   { font-size: 16px; font-weight: 700; color: var(--text); }
+    .metric-cell .mc-sig   { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+    .mc-sig-ai     { color: #f87171; }
+    .mc-sig-human  { color: #4ade80; }
+    .mc-sig-neutral{ color: var(--text-secondary); }
+
+    .result-divider { height: 1px; background: var(--border); margin: 22px 0; }
+
+    .result-cta { display: flex; gap: 10px; flex-wrap: wrap; }
+    .btn-cta-primary {
+      flex: 1; min-width: 160px;
+      background: var(--accent); color: #fff; border: none;
+      padding: 11px 16px; border-radius: 9px;
+      font-size: 13px; font-weight: 700; cursor: pointer;
+      text-align: center; transition: background .15s;
+    }
+    .btn-cta-primary:hover { background: var(--accent-light); }
+    .btn-cta-outline {
+      flex: 1; min-width: 140px;
+      background: transparent; color: var(--text-secondary);
+      border: 1px solid var(--border);
+      padding: 11px 16px; border-radius: 9px;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      text-align: center; transition: border-color .15s, color .15s;
+    }
+    .btn-cta-outline:hover { border-color: var(--accent); color: var(--accent-light); }
+    .result-note {
+      font-size: 12px; color: var(--muted); margin-top: 12px; text-align: center;
+    }
+
+    /* ── CONTAINER / SECTION ── */
+    .container { max-width: 1080px; margin: 0 auto; padding: 0 32px; }
+    section { padding: 80px 0; }
+    .divider { height: 1px; background: var(--border); }
+
+    .sec-tag {
+      font-size: 12px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 1.2px; color: var(--accent-light); margin-bottom: 12px;
+    }
+    .sec-title {
+      font-size: clamp(22px, 3vw, 34px); font-weight: 800;
+      letter-spacing: -.5px; color: #f1f5f9; margin-bottom: 12px;
+    }
+    .sec-sub {
+      font-size: 17px; color: var(--text-secondary); line-height: 1.7;
+      max-width: 520px;
+    }
+
+    /* ── HOW IT WORKS ── */
+    .steps {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 20px; margin-top: 48px;
+    }
+    @media (max-width: 620px) { .steps { grid-template-columns: 1fr; } }
+
+    .step {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 22px;
+    }
+    .step-num {
+      width: 34px; height: 34px; border-radius: 9px;
+      background: var(--accent-glow); border: 1px solid rgba(99,102,241,.28);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; color: var(--accent-light);
+      margin-bottom: 14px;
+    }
+    .step h4 { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 7px; }
+    .step p  { font-size: 14px; color: var(--text-secondary); line-height: 1.6; }
+
+    /* ── FOR WHOM ── */
+    .for-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 20px; margin-top: 48px;
+    }
+    @media (max-width: 620px) { .for-grid { grid-template-columns: 1fr; } }
+
+    .for-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 26px;
+    }
+    .for-tag {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 1px; color: var(--accent-light); margin-bottom: 8px;
+    }
+    .for-card h3 { font-size: 19px; font-weight: 700; color: var(--text); margin-bottom: 10px; }
+    .for-card p  { font-size: 14px; color: var(--text-secondary); line-height: 1.65; margin-bottom: 18px; }
+
+    .check-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+    .check-list li {
+      display: flex; align-items: flex-start; gap: 9px;
+      font-size: 14px; color: var(--text-secondary);
+    }
+    .check-list li::before {
+      content: "✓"; color: var(--accent-light);
+      font-weight: 700; flex-shrink: 0; margin-top: 1px;
+    }
+
+    /* ── PRICING ── */
+    #pricing {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+    .pricing-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 18px; margin-top: 48px;
+    }
+    @media (max-width: 720px) { .pricing-grid { grid-template-columns: 1fr; } }
+
+    .plan {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 26px;
+      display: flex; flex-direction: column;
+    }
+    .plan.featured {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent), 0 0 32px rgba(99,102,241,.14);
+    }
+    .plan-hot {
+      display: inline-block; background: var(--accent); color: #fff;
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .5px; padding: 3px 10px; border-radius: 999px;
+      margin-bottom: 14px; align-self: flex-start;
+    }
+    .plan-name { font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
+    .plan-price {
+      font-size: 42px; font-weight: 800; letter-spacing: -2px;
+      color: var(--text); margin-bottom: 4px;
+    }
+    .plan-price sup { font-size: 18px; font-weight: 600; vertical-align: super; letter-spacing: 0; }
+    .plan-price small { font-size: 14px; font-weight: 500; color: var(--muted); letter-spacing: 0; }
+    .plan-desc { font-size: 13px; color: var(--text-secondary); margin-bottom: 20px; line-height: 1.5; }
+    .plan-hr { height: 1px; background: var(--border); margin: 16px 0; }
+    .plan-features { list-style: none; display: flex; flex-direction: column; gap: 9px; flex: 1; }
+    .plan-features li {
+      display: flex; align-items: flex-start; gap: 9px;
+      font-size: 13px; color: var(--text-secondary);
+    }
+    .fi-yes { color: #4ade80; font-weight: 700; flex-shrink: 0; }
+    .fi-no  { color: var(--muted); flex-shrink: 0; }
+
+    .plan-btn {
+      margin-top: 22px; width: 100%; padding: 12px;
+      border-radius: 9px; font-size: 14px; font-weight: 700;
+      cursor: pointer; border: none; transition: all .15s;
+    }
+    .plan-btn-fill  { background: var(--accent); color: #fff; }
+    .plan-btn-fill:hover  { background: var(--accent-light); }
+    .plan-btn-ghost { background: transparent; color: var(--text-secondary); border: 1px solid var(--border); }
+    .plan-btn-ghost:hover { border-color: var(--accent); color: var(--accent-light); }
+
+    /* ── CTA BANNER ── */
+    .cta-banner {
+      text-align: center; padding: 80px 24px;
+      background: radial-gradient(ellipse at 50% 0%, rgba(99,102,241,.1) 0%, transparent 65%);
+    }
+    .cta-banner h2 {
+      font-size: clamp(22px, 3.5vw, 38px); font-weight: 800;
+      letter-spacing: -.5px; color: #f1f5f9; margin-bottom: 14px;
+    }
+    .cta-banner p {
+      font-size: 17px; color: var(--text-secondary);
+      max-width: 460px; margin: 0 auto 32px; line-height: 1.7;
+    }
+    .cta-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .btn-main {
+      background: var(--accent); color: #fff; border: none;
+      padding: 13px 28px; border-radius: 10px;
+      font-size: 15px; font-weight: 700; cursor: pointer;
+      transition: background .15s, transform .1s;
+    }
+    .btn-main:hover { background: var(--accent-light); }
+    .btn-ghost {
+      background: transparent; color: var(--text-secondary);
+      border: 1px solid var(--border);
+      padding: 13px 28px; border-radius: 10px;
+      font-size: 15px; font-weight: 600; cursor: pointer;
+      transition: border-color .15s, color .15s;
+    }
+    .btn-ghost:hover { border-color: var(--accent); color: var(--accent-light); }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 28px 32px;
+      display: flex; justify-content: space-between; align-items: center;
+      flex-wrap: wrap; gap: 12px;
+      font-size: 13px; color: var(--muted);
+    }
+    footer a { color: var(--muted); text-decoration: none; transition: color .15s; }
+    footer a:hover { color: var(--text-secondary); }
+    .footer-links { display: flex; gap: 20px; }
+
+    /* ── SPINNER ── */
+    .spinner {
+      width: 15px; height: 15px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+      display: inline-block;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── SCROLLBAR ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="/" class="nav-logo">AI <em>Detector</em></a>
+  <div class="nav-links">
+    <a href="#como-funciona" class="nav-link">Como funciona</a>
+    <a href="#pricing" class="nav-link">Planos</a>
+    <a href="#" class="nav-cta" onclick="scrollToAnalyzer(event)">Testar agora</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge">
+    <span>✦</span> Análise de autenticidade em segundos
+  </div>
+  <h1>Descubra se um texto foi<br>escrito por <strong>humanos</strong></h1>
+  <p>Cole qualquer conteúdo e veja em segundos se foi gerado por IA. Para agências criativas, profissionais e equipes.</p>
+</div>
+
+<!-- ANALYZER -->
+<div id="analyzer">
+  <div class="analyzer-box">
+    <div class="analyzer-top">
+      <label for="input-text">Cole o texto para analisar</label>
+      <span id="char-count">0 / 50.000 caracteres</span>
+    </div>
+    <textarea
+      id="input-text"
+      class="analyzer-textarea"
+      placeholder="Cole aqui o texto que deseja verificar... (mínimo 50 caracteres)"
+      oninput="onTextInput()"
+    ></textarea>
+    <div class="analyzer-bottom">
+      <span class="analyzer-hint">Funciona com português, inglês e outros idiomas</span>
+      <button class="btn-analyze" id="btn-analyze" onclick="runAnalysis()">
+        <span id="btn-label">Analisar agora</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- RESULT -->
+  <div id="result-wrap">
+    <div class="result-box" id="result-box"><!-- preenchido via JS --></div>
+  </div>
+</div>
+
+<!-- HOW IT WORKS -->
+<div class="divider"></div>
+<section id="como-funciona">
+  <div class="container">
+    <div class="sec-tag">Como funciona</div>
+    <div class="sec-title">Três passos, resultado imediato</div>
+    <div class="sec-sub">Sem cadastro para testar. Sem configuração. O resultado aparece na mesma tela.</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h4>Cole o texto</h4>
+        <p>Copie qualquer conteúdo — peça criativa, redação, relatório, mensagem ou documento recebido.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h4>Análise automática</h4>
+        <p>O motor analisa padrões linguísticos: ritmo, vocabulário, uniformidade de estrutura e densidade textual.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h4>Veredicto claro</h4>
+        <p>Receba um resultado em linguagem direta — humano, incerto ou gerado por IA — com as métricas que explicam o porquê.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- FOR WHOM -->
+<section>
+  <div class="container">
+    <div class="sec-tag">Para quem é</div>
+    <div class="sec-title">Autenticidade importa no seu trabalho</div>
+    <div class="for-grid">
+      <div class="for-card">
+        <div class="for-tag">Agências criativas</div>
+        <h3>Garanta a integridade das entregas</h3>
+        <p>Verifique se o conteúdo produzido pelo time ou por freelancers representa trabalho humano real antes de entregar ao cliente.</p>
+        <ul class="check-list">
+          <li>Análise em lote de múltiplas peças</li>
+          <li>Relatório de autenticidade para o cliente</li>
+          <li>Dashboard por membro da equipe</li>
+          <li>Proteção da reputação da agência</li>
+          <li>Conformidade com regulações de disclosure de IA</li>
+        </ul>
+      </div>
+      <div class="for-card">
+        <div class="for-tag">Profissionais e equipes</div>
+        <h3>Verifique qualquer conteúdo recebido</h3>
+        <p>Gestores, professores, recrutadores — qualquer profissional que precise validar se um texto representa trabalho e pensamento reais.</p>
+        <ul class="check-list">
+          <li>Verificação rápida de qualquer documento</li>
+          <li>Histórico completo de análises</li>
+          <li>Upload de PDF e DOCX</li>
+          <li>Resultados exportáveis em PDF</li>
+          <li>Análise ilimitada no plano pago</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section id="pricing">
+  <div class="container">
+    <div class="sec-tag">Planos</div>
+    <div class="sec-title">Comece grátis, escale quando precisar</div>
+    <div class="sec-sub">Sem cartão de crédito para começar. Cancele quando quiser.</div>
+    <div class="pricing-grid">
+
+      <!-- FREE -->
+      <div class="plan">
+        <div class="plan-name">Free</div>
+        <div class="plan-price">R$0</div>
+        <div class="plan-desc">Para experimentar e uso eventual</div>
+        <div class="plan-hr"></div>
+        <ul class="plan-features">
+          <li><span class="fi-yes">✓</span> 10 análises por mês</li>
+          <li><span class="fi-yes">✓</span> Texto colado (até 5.000 chars)</li>
+          <li><span class="fi-yes">✓</span> Veredicto e score básico</li>
+          <li><span class="fi-no">—</span> Upload de PDF / DOCX</li>
+          <li><span class="fi-no">—</span> Histórico salvo</li>
+          <li><span class="fi-no">—</span> Exportar relatório</li>
+          <li><span class="fi-no">—</span> Projetos e time</li>
+        </ul>
+        <button class="plan-btn plan-btn-ghost">Criar conta grátis</button>
+      </div>
+
+      <!-- PRO -->
+      <div class="plan featured">
+        <div class="plan-hot">Mais popular</div>
+        <div class="plan-name">Pro</div>
+        <div class="plan-price"><sup>R$</sup>29<small>/mês</small></div>
+        <div class="plan-desc">Para profissionais e uso frequente</div>
+        <div class="plan-hr"></div>
+        <ul class="plan-features">
+          <li><span class="fi-yes">✓</span> Análises ilimitadas</li>
+          <li><span class="fi-yes">✓</span> Até 50.000 chars por análise</li>
+          <li><span class="fi-yes">✓</span> Upload de PDF e DOCX</li>
+          <li><span class="fi-yes">✓</span> Histórico completo</li>
+          <li><span class="fi-yes">✓</span> Exportar relatório em PDF</li>
+          <li><span class="fi-no">—</span> Projetos por cliente</li>
+          <li><span class="fi-no">—</span> Relatório de entrega ao cliente</li>
+        </ul>
+        <button class="plan-btn plan-btn-fill">Assinar Pro</button>
+      </div>
+
+      <!-- AGENCY -->
+      <div class="plan">
+        <div class="plan-name">Agency</div>
+        <div class="plan-price"><sup>R$</sup>197<small>/mês</small></div>
+        <div class="plan-desc">Para agências e equipes criativas</div>
+        <div class="plan-hr"></div>
+        <ul class="plan-features">
+          <li><span class="fi-yes">✓</span> Tudo do plano Pro</li>
+          <li><span class="fi-yes">✓</span> Até 10 usuários</li>
+          <li><span class="fi-yes">✓</span> Projetos por cliente</li>
+          <li><span class="fi-yes">✓</span> Upload em lote</li>
+          <li><span class="fi-yes">✓</span> Relatório de entrega ao cliente</li>
+          <li><span class="fi-yes">✓</span> Dashboard por membro do time</li>
+          <li><span class="fi-yes">✓</span> Suporte prioritário</li>
+        </ul>
+        <button class="plan-btn plan-btn-ghost">Falar com a equipe</button>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- CTA BANNER -->
+<div class="cta-banner">
+  <h2>Pronto para verificar?</h2>
+  <p>Sem cadastro para o primeiro teste. Descubra agora se o que você recebeu é autentico.</p>
+  <div class="cta-actions">
+    <button class="btn-main" onclick="scrollToAnalyzer(event)">Analisar um texto</button>
+    <button class="btn-ghost" onclick="document.getElementById('pricing').scrollIntoView({behavior:'smooth'})">Ver planos</button>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <span>AI Detector &copy; 2026</span>
+  <div class="footer-links">
+    <a href="/docs" target="_blank">API Docs</a>
+    <a href="/sandbox" target="_blank">Sandbox</a>
+    <a href="/changelog">Changelog</a>
+    <a href="/health">Status</a>
+  </div>
+</footer>
+
+<script>
+const API = '/api/v1';
+
+function scrollToAnalyzer(e) {
+  e.preventDefault();
+  document.getElementById('analyzer').scrollIntoView({ behavior: 'smooth' });
+  setTimeout(() => document.getElementById('input-text').focus(), 450);
+}
+
+function onTextInput() {
+  const len = document.getElementById('input-text').value.length;
+  document.getElementById('char-count').textContent =
+    `${len.toLocaleString('pt-BR')} / 50.000 caracteres`;
+}
+
+async function apiFetch(method, path, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(API + path, opts);
+  const data = await res.json().catch(() => ({}));
+  return { ok: res.ok, data };
+}
+
+async function runAnalysis() {
+  const text = document.getElementById('input-text').value.trim();
+
+  if (text.length < 50) {
+    renderError('O texto deve ter pelo menos 50 caracteres.');
+    return;
+  }
+  if (text.length > 50000) {
+    renderError('O texto excede o limite de 50.000 caracteres.');
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const { ok: s1, data: sub } = await apiFetch('POST', '/submissions', { text_content: text });
+    if (!s1) { renderError('Erro ao enviar o texto. Tente novamente.'); return; }
+
+    const { ok: s2 } = await apiFetch('POST', `/submissions/${sub.id}/analyze`);
+    if (!s2) { renderError('Erro na análise. Tente novamente.'); return; }
+
+    const { ok: s3, data: result } = await apiFetch('GET', `/submissions/${sub.id}/result`);
+    if (!s3) { renderError('Erro ao buscar resultado.'); return; }
+
+    renderResult(result);
+  } catch {
+    renderError('Erro de conexão. Verifique sua internet e tente novamente.');
+  } finally {
+    setLoading(false);
+  }
+}
+
+function setLoading(on) {
+  const btn = document.getElementById('btn-analyze');
+  const lbl = document.getElementById('btn-label');
+  btn.disabled = on;
+  lbl.innerHTML = on
+    ? '<span class="spinner"></span> Analisando...'
+    : 'Analisar novamente';
+}
+
+function renderResult(r) {
+  const pct   = Math.round(r.ai_probability_score * 100);
+  const v     = r.verdict;
+  const f     = r.features || {};
+
+  const labels = {
+    human:     'Escrito por humano',
+    uncertain: 'Resultado inconclusivo',
+    ai:        'Provável gerado por IA',
+  };
+  const subs = {
+    human:     'O texto apresenta padrões característicos de escrita humana.',
+    uncertain: 'O texto tem elementos mistos — não foi possível determinar a origem com certeza.',
+    ai:        'O texto apresenta padrões consistentes com conteúdo gerado por IA.',
+  };
+  const barColor = v === 'human' ? '#22c55e' : v === 'uncertain' ? '#f59e0b' : '#ef4444';
+  const confLabel = { high: 'Alta', medium: 'Média', low: 'Baixa' }[r.confidence_level] || r.confidence_level;
+
+  // Signal helpers
+  function sig(condition, aiMsg, humanMsg) {
+    return condition
+      ? `<span class="mc-sig mc-sig-ai">${aiMsg}</span>`
+      : `<span class="mc-sig mc-sig-human">${humanMsg}</span>`;
+  }
+
+  const sentSig  = sig(f.avg_sentence_length >= 18 && f.avg_sentence_length <= 26, 'Uniforme · sinal de IA', 'Variado · sinal humano');
+  const burstSig = sig(f.burstiness_score < 0.40, 'Baixa variação · sinal de IA', 'Alta variação · sinal humano');
+  const vocabSig = sig(f.vocabulary_richness >= 0.35 && f.vocabulary_richness <= 0.55, 'Moderado · sinal de IA', 'Fora do padrão IA');
+  const wordSig  = sig(f.avg_word_length > 5.0, 'Elaborado · sinal de IA', 'Natural · sinal humano');
+
+  const fmt  = v => v != null ? parseFloat(v).toFixed(2) : '—';
+  const fmtP = v => v != null ? (parseFloat(v) * 100).toFixed(1) + '%' : '—';
+
+  document.getElementById('result-box').innerHTML = `
+    <div class="result-header">
+      <span class="verdict-pill pill-${v}">
+        ${ v === 'human' ? 'Humano' : v === 'uncertain' ? 'Incerto' : 'IA' }
+      </span>
+      <div class="verdict-text">
+        <h3>${labels[v]}</h3>
+        <p>${subs[v]}</p>
+      </div>
+    </div>
+
+    <div class="prob-wrap">
+      <div class="prob-number" style="color:${barColor}">${pct}%</div>
+      <div class="prob-labels"><span>Humano</span><span>Probabilidade de IA</span></div>
+      <div class="prob-track">
+        <div class="prob-fill" style="width:0%; background:${barColor}" id="prob-fill"></div>
+      </div>
+      <div class="confidence-row">
+        <div class="confidence-dot"></div>
+        Confiança da análise: <strong>${confLabel}</strong>
+        &nbsp;·&nbsp; Modelo: ${r.model_version}
+        &nbsp;·&nbsp; ${r.processing_time_ms != null ? r.processing_time_ms + 'ms' : '—'}
+      </div>
+    </div>
+
+    <div class="metrics-label">Métricas de análise</div>
+    <div class="metrics-grid">
+      <div class="metric-cell">
+        <div class="mc-label">Comprimento médio de frase</div>
+        <div class="mc-val">${fmt(f.avg_sentence_length)} palavras</div>
+        ${sentSig}
+      </div>
+      <div class="metric-cell">
+        <div class="mc-label">Variação de ritmo (burstiness)</div>
+        <div class="mc-val">${fmt(f.burstiness_score)}</div>
+        ${burstSig}
+      </div>
+      <div class="metric-cell">
+        <div class="mc-label">Riqueza vocabular</div>
+        <div class="mc-val">${fmtP(f.vocabulary_richness)}</div>
+        ${vocabSig}
+      </div>
+      <div class="metric-cell">
+        <div class="mc-label">Comprimento médio de palavra</div>
+        <div class="mc-val">${fmt(f.avg_word_length)} chars</div>
+        ${wordSig}
+      </div>
+    </div>
+
+    <div class="result-divider"></div>
+    <div class="result-cta">
+      <button class="btn-cta-primary">Criar conta grátis — 10 análises/mês</button>
+      <button class="btn-cta-outline" onclick="document.getElementById('pricing').scrollIntoView({behavior:'smooth'})">Ver planos completos</button>
+    </div>
+    <p class="result-note">Cadastre-se para salvar histórico, fazer upload de PDFs e exportar relatórios.</p>
+  `;
+
+  const wrap = document.getElementById('result-wrap');
+  wrap.style.display = 'block';
+  wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  // Animate bar after render
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      const fill = document.getElementById('prob-fill');
+      if (fill) fill.style.width = `${pct}%`;
+    }, 60);
+  });
+}
+
+function renderError(msg) {
+  const wrap = document.getElementById('result-wrap');
+  document.getElementById('result-box').innerHTML =
+    `<p style="color:#f87171;font-size:14px;padding:4px 0">${msg}</p>`;
+  wrap.style.display = 'block';
+}
+</script>
+</body>
+</html>

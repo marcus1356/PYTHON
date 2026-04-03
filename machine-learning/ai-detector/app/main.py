@@ -11,6 +11,7 @@ from app.config import get_settings
 from app.core.database import Base, engine
 
 _STATIC = Path(__file__).resolve().parent.parent / "static"
+_LANDING_HTML = _STATIC / "landing.html"
 _SANDBOX_HTML = _STATIC / "index.html"
 _CHANGELOG_HTML = _STATIC / "changelog.html"
 
@@ -49,6 +50,12 @@ app.add_middleware(
 )
 
 app.include_router(api_router, prefix=settings.api_v1_prefix)
+
+@app.get("/", include_in_schema=False)
+async def landing():
+    """Landing page principal do produto."""
+    return FileResponse(_LANDING_HTML, media_type="text/html")
+
 
 @app.get("/sandbox", include_in_schema=False)
 async def sandbox():
