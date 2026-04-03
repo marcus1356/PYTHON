@@ -30,3 +30,10 @@ coverage.json
 
 # Alembic
 alembic/versions/*.pyc
+
+# Jupyter
+.ipynb_checkpoints/
+Untitled.ipynb
+
+# Tracker de acurácia (dados locais)
+notebooks/accuracy_log.json
