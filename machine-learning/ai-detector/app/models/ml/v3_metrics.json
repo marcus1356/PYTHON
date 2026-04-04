@@ -1,0 +1,29 @@
+{
+  "cv_accuracy_mean": 0.9341875,
+  "cv_accuracy_std": 0.0032929849680798655,
+  "cv_folds": [
+    0.93125,
+    0.93,
+    0.9390625,
+    0.93625,
+    0.934375
+  ],
+  "n_train_samples": 16000,
+  "n_features": 12,
+  "feature_importances": {
+    "avg_sentence_length": 0.053684114826886266,
+    "vocabulary_richness": 0.09285606619781434,
+    "burstiness": 0.30129176250104034,
+    "punctuation_density": 0.0862513925541993,
+    "avg_word_length": 0.16183686401125003,
+    "transition_word_density": 0.074590089473761,
+    "first_person_ratio": 0.05691244700481043,
+    "hedge_word_ratio": 0.009733163175277173,
+    "question_density": 0.0033377213336951424,
+    "bigram_repetition_score": 0.032153613744717716,
+    "lexical_diversity_entropy": 0.030881799551979918,
+    "hapax_legomena_ratio": 0.09647096562456835
+  },
+  "model_class": "RandomForestClassifier",
+  "n_estimators": 200
+}
