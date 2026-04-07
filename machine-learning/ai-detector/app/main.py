@@ -11,9 +11,12 @@ from app.config import get_settings
 from app.core.database import Base, engine
 
 _STATIC = Path(__file__).resolve().parent.parent / "static"
-_LANDING_HTML = _STATIC / "landing.html"
-_SANDBOX_HTML = _STATIC / "index.html"
+_LANDING_HTML   = _STATIC / "landing.html"
+_SANDBOX_HTML   = _STATIC / "index.html"
 _CHANGELOG_HTML = _STATIC / "changelog.html"
+_LOGIN_HTML     = _STATIC / "login.html"
+_DASHBOARD_HTML = _STATIC / "dashboard.html"
+_MODEL_HTML     = _STATIC / "model_dashboard.html"
 
 settings = get_settings()
 
@@ -44,9 +47,10 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=settings.allowed_origins.split(","),
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 app.include_router(api_router, prefix=settings.api_v1_prefix)
@@ -67,6 +71,24 @@ async def sandbox():
 async def changelog():
     """Página de release notes."""
     return FileResponse(_CHANGELOG_HTML, media_type="text/html")
+
+
+@app.get("/login", include_in_schema=False)
+async def login_page():
+    """Página de login e cadastro."""
+    return FileResponse(_LOGIN_HTML, media_type="text/html")
+
+
+@app.get("/dashboard", include_in_schema=False)
+async def dashboard_page():
+    """Área do usuário autenticado."""
+    return FileResponse(_DASHBOARD_HTML, media_type="text/html")
+
+
+@app.get("/model", include_in_schema=False)
+async def model_dashboard():
+    """Dashboard público com métricas do modelo ML ativo."""
+    return FileResponse(_MODEL_HTML, media_type="text/html")
 
 
 @app.get("/health", tags=["health"])

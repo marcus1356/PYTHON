@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Detector — Modelo ML</title>
+  <style>
+    :root {
+      --bg: #0a0c14; --surface: #12141f; --surface2: #1a1d2e;
+      --border: #252840; --accent: #6366f1; --accent-light: #818cf8;
+      --accent-glow: rgba(99,102,241,0.12);
+      --text: #e2e8f0; --text-secondary: #94a3b8; --muted: #475569;
+      --radius: 12px;
+      --green: #22c55e; --yellow: #f59e0b; --red: #ef4444; --blue: #38bdf8;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: -apple-system, 'Segoe UI', system-ui, sans-serif;
+      font-size: 15px; line-height: 1.6; min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* NAV */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(10,12,20,0.92); backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 32px; height: 58px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .nav-logo { font-size: 17px; font-weight: 700; color: var(--text); text-decoration: none; }
+    .nav-logo em { font-style: normal; color: var(--accent-light); }
+    .nav-links { display: flex; gap: 6px; }
+    .nav-links a {
+      font-size: 13px; font-weight: 500; color: var(--text-secondary);
+      text-decoration: none; padding: 6px 12px; border-radius: 8px; transition: all .15s;
+    }
+    .nav-links a:hover { background: var(--surface2); color: var(--text); }
+    .nav-links a.active { background: var(--accent-glow); color: var(--accent-light); }
+
+    /* PAGE */
+    .page { max-width: 1100px; margin: 0 auto; padding: 40px 32px; }
+    @media (max-width: 640px) { .page { padding: 24px 16px; } }
+
+    .page-header { margin-bottom: 36px; }
+    .page-header h1 { font-size: 26px; font-weight: 800; letter-spacing: -.5px; margin-bottom: 4px; }
+    .page-header p { font-size: 14px; color: var(--text-secondary); }
+
+    /* VERSION BADGE */
+    .version-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--accent-glow); border: 1px solid rgba(99,102,241,.3);
+      color: var(--accent-light); font-size: 12px; font-weight: 600;
+      padding: 4px 12px; border-radius: 20px; margin-bottom: 16px;
+      letter-spacing: .5px; text-transform: uppercase;
+    }
+    .version-badge .dot { width: 6px; height: 6px; background: var(--green); border-radius: 50%; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+    /* STAT CARDS */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px; margin-bottom: 32px;
+    }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 20px 24px;
+      transition: border-color .2s;
+    }
+    .stat-card:hover { border-color: var(--accent); }
+    .stat-label { font-size: 12px; color: var(--text-secondary); font-weight: 500; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+    .stat-value { font-size: 28px; font-weight: 800; letter-spacing: -.5px; }
+    .stat-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .c-green { color: var(--green); }
+    .c-blue  { color: var(--blue); }
+    .c-yellow{ color: var(--yellow); }
+    .c-red   { color: var(--red); }
+    .c-accent{ color: var(--accent-light); }
+
+    /* SECTION */
+    .section { margin-bottom: 32px; }
+    .section-title {
+      font-size: 13px; font-weight: 700; color: var(--text-secondary);
+      text-transform: uppercase; letter-spacing: .8px;
+      margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
+    }
+    .section-title::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
+
+    /* CARD */
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 24px;
+    }
+
+    /* TWO-COL */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+
+    /* FEATURE BARS */
+    .feature-list { display: flex; flex-direction: column; gap: 10px; }
+    .feature-row { display: flex; align-items: center; gap: 12px; }
+    .feature-name {
+      font-size: 12px; font-family: 'Fira Code', 'Cascadia Code', monospace;
+      color: var(--text-secondary); width: 210px; flex-shrink: 0;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .feature-bar-wrap { flex: 1; background: var(--surface2); border-radius: 4px; height: 8px; overflow: hidden; }
+    .feature-bar { height: 100%; border-radius: 4px; background: var(--accent); transition: width .6s ease; }
+    .feature-group-0 .feature-bar { background: linear-gradient(90deg, #6366f1, #818cf8); }
+    .feature-group-1 .feature-bar { background: linear-gradient(90deg, #38bdf8, #67e8f9); }
+    .feature-idx {
+      font-size: 11px; color: var(--muted); width: 20px; text-align: right; flex-shrink: 0;
+    }
+
+    /* DATASETS */
+    .dataset-list { display: flex; flex-direction: column; gap: 12px; }
+    .dataset-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; background: var(--surface2); border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .dataset-name { font-size: 14px; font-weight: 600; }
+    .dataset-info { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+    .dataset-badge {
+      font-size: 11px; font-weight: 600; padding: 3px 10px;
+      border-radius: 20px; white-space: nowrap;
+    }
+    .badge-raid    { background: rgba(99,102,241,.15); color: var(--accent-light); }
+    .badge-hc3     { background: rgba(34,197,94,.12);  color: var(--green); }
+    .badge-mage    { background: rgba(56,189,248,.12);  color: var(--blue); }
+    .badge-pile    { background: rgba(245,158,11,.12);  color: var(--yellow); }
+
+    /* PARAMS TABLE */
+    .params-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media (max-width: 500px) { .params-grid { grid-template-columns: 1fr; } }
+    .param-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 12px; background: var(--surface2); border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .param-key { font-size: 12px; color: var(--text-secondary); font-family: monospace; }
+    .param-val { font-size: 13px; font-weight: 600; color: var(--accent-light); font-family: monospace; }
+
+    /* AUC GAUGE */
+    .gauge-wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 8px 0; }
+    .gauge-svg { overflow: visible; }
+    .gauge-label { text-anchor: middle; dominant-baseline: middle; }
+    .gauge-val { font-size: 32px; font-weight: 800; fill: var(--text); }
+    .gauge-sub { font-size: 13px; fill: var(--text-secondary); }
+
+    /* INFO ROW */
+    .info-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .info-row:last-child { border-bottom: none; }
+    .info-key { font-size: 13px; color: var(--text-secondary); }
+    .info-val { font-size: 13px; font-weight: 600; }
+
+    /* LOADING */
+    .loading { display: flex; align-items: center; justify-content: center; min-height: 300px; gap: 12px; color: var(--muted); }
+    .spinner { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .6s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ERROR */
+    .error-msg { text-align: center; color: var(--red); padding: 40px; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-logo" href="/"><em>AI</em> Detector</a>
+  <div class="nav-links">
+    <a href="/">Home</a>
+    <a href="/dashboard">Detector</a>
+    <a href="/model" class="active">Modelo</a>
+    <a href="/docs">API</a>
+  </div>
+</nav>
+
+<div class="page">
+  <div id="loading" class="loading">
+    <div class="spinner"></div>
+    Carregando métricas do modelo...
+  </div>
+
+  <div id="content" style="display:none">
+    <div class="page-header">
+      <div class="version-badge"><span class="dot"></span><span id="badge-version">v4</span> — Ativo</div>
+      <h1>Dashboard do Modelo ML</h1>
+      <p>Métricas de desempenho e configuração do modelo de detecção em produção.</p>
+    </div>
+
+    <!-- STAT CARDS -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Accuracy</div>
+        <div class="stat-value c-green" id="stat-acc">—</div>
+        <div class="stat-sub">conjunto de teste</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">AUC-ROC</div>
+        <div class="stat-value c-blue" id="stat-auc">—</div>
+        <div class="stat-sub">separação das classes</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">F1 Weighted</div>
+        <div class="stat-value c-accent" id="stat-f1">—</div>
+        <div class="stat-sub">precisão × recall</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Brier Score</div>
+        <div class="stat-value c-yellow" id="stat-brier">—</div>
+        <div class="stat-sub">calibração (menor = melhor)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Features</div>
+        <div class="stat-value c-accent" id="stat-features">—</div>
+        <div class="stat-sub">variáveis do modelo</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Treino</div>
+        <div class="stat-value" id="stat-train">—</div>
+        <div class="stat-sub">amostras de treino</div>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <!-- FEATURES -->
+      <div class="section">
+        <div class="section-title">Features do Modelo</div>
+        <div class="card">
+          <div class="feature-list" id="feature-list"></div>
+        </div>
+      </div>
+
+      <!-- RIGHT COL -->
+      <div>
+        <!-- DATASETS -->
+        <div class="section">
+          <div class="section-title">Datasets de Treino</div>
+          <div class="card">
+            <div class="dataset-list" id="dataset-list"></div>
+          </div>
+        </div>
+
+        <!-- MODEL INFO -->
+        <div class="section">
+          <div class="section-title">Informações do Modelo</div>
+          <div class="card">
+            <div class="info-row">
+              <span class="info-key">Algoritmo</span>
+              <span class="info-val" id="info-algo">—</span>
+            </div>
+            <div class="info-row">
+              <span class="info-key">Arquivo</span>
+              <span class="info-val" id="info-file">—</span>
+            </div>
+            <div class="info-row">
+              <span class="info-key">Tamanho</span>
+              <span class="info-val" id="info-size">—</span>
+            </div>
+            <div class="info-row">
+              <span class="info-key">Amostras de teste</span>
+              <span class="info-val" id="info-test">—</span>
+            </div>
+            <div class="info-row" id="optuna-row" style="display:none">
+              <span class="info-key">Optuna best AUC</span>
+              <span class="info-val" id="info-optuna">—</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OPTUNA PARAMS -->
+    <div class="section" id="params-section" style="display:none">
+      <div class="section-title">Hiperparâmetros Otimizados (Optuna)</div>
+      <div class="card">
+        <div class="params-grid" id="params-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="error" class="error-msg" style="display:none">
+    Não foi possível carregar as métricas do modelo.
+  </div>
+</div>
+
+<script>
+const DATASET_META = {
+  raid:                { label: 'RAID',            info: 'Benchmark adversarial — múltiplos LLMs e ataques',   badge: 'badge-raid' },
+  'ai-detection-pile': { label: 'AI Detection Pile', info: 'Textos humanos curados para balanceamento',          badge: 'badge-pile' },
+  hc3:                 { label: 'HC3',              info: 'Perguntas: respostas humanas vs ChatGPT',             badge: 'badge-hc3'  },
+  mage:                { label: 'MAGE',             info: 'Textos humanos vs múltiplos LLMs (GPT-4, Llama…)',   badge: 'badge-mage' },
+};
+
+const FEATURE_GROUPS = {
+  avg_sentence_length:         0, vocabulary_richness:      0, burstiness:               0,
+  punctuation_density:         0, avg_word_length:          0, transition_word_density:  0,
+  first_person_ratio:          0, hedge_word_ratio:         0, question_density:         0,
+  bigram_repetition_score:     0, lexical_diversity_entropy:0, hapax_legomena_ratio:     0,
+  readability_fog:             1, stopword_ratio:           1, sentence_length_variance: 1,
+  comma_density:               1, unique_trigrams_ratio:    1, pos_noun_ratio:           1,
+  coherence_score:             1, exclamation_ratio:        1,
+};
+
+function fmt(n, dec=4) { return (n * 100).toFixed(dec === 4 ? 2 : dec) + '%'; }
+function fmtN(n)       { return n.toLocaleString('pt-BR'); }
+function fmtF(n, d=4)  { return n.toFixed(d); }
+
+(async () => {
+  try {
+    const res = await fetch('/api/v1/metrics');
+    if (!res.ok) throw new Error(res.statusText);
+    const m = await res.json();
+
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('content').style.display = '';
+
+    // Badge
+    document.getElementById('badge-version').textContent = m.model_version.toUpperCase();
+
+    // Stat cards
+    document.getElementById('stat-acc').textContent      = fmt(m.test_accuracy);
+    document.getElementById('stat-auc').textContent      = fmtF(m.test_roc_auc);
+    document.getElementById('stat-f1').textContent       = fmtF(m.test_f1_weighted);
+    document.getElementById('stat-brier').textContent    = fmtF(m.test_brier);
+    document.getElementById('stat-features').textContent = m.n_features;
+    document.getElementById('stat-train').textContent    = fmtN(m.n_train_samples);
+
+    // Features
+    const fl = document.getElementById('feature-list');
+    m.feature_names.forEach((name, i) => {
+      const group = FEATURE_GROUPS[name] ?? 0;
+      // bar width: features later in list are slightly shorter for visual variation
+      const barW = Math.max(25, 100 - i * 3.8);
+      fl.innerHTML += `
+        <div class="feature-row feature-group-${group}">
+          <span class="feature-idx">${i}</span>
+          <span class="feature-name" title="${name}">${name}</span>
+          <div class="feature-bar-wrap">
+            <div class="feature-bar" style="width:${barW}%"></div>
+          </div>
+        </div>`;
+    });
+
+    // Datasets
+    const dl = document.getElementById('dataset-list');
+    m.datasets_used.forEach(ds => {
+      const meta = DATASET_META[ds] || { label: ds, info: '', badge: '' };
+      dl.innerHTML += `
+        <div class="dataset-row">
+          <div>
+            <div class="dataset-name">${meta.label}</div>
+            <div class="dataset-info">${meta.info}</div>
+          </div>
+          <span class="dataset-badge ${meta.badge}">${ds}</span>
+        </div>`;
+    });
+
+    // Model info
+    document.getElementById('info-algo').textContent = m.deploy_model;
+    document.getElementById('info-file').textContent = m.model_file;
+    document.getElementById('info-size').textContent = `${m.model_size_mb} MB`;
+    document.getElementById('info-test').textContent = fmtN(m.n_test_samples);
+
+    if (m.optuna_best_auc) {
+      document.getElementById('optuna-row').style.display = '';
+      document.getElementById('info-optuna').textContent  = fmtF(m.optuna_best_auc, 5);
+    }
+
+    // Optuna params — fetched from metrics (stored in JSON)
+    // We'll show them if available via a second fetch to the raw metrics JSON
+    // (The /metrics endpoint doesn't expose optuna_best_params yet — show placeholder)
+    const paramsSection = document.getElementById('params-section');
+    const paramsGrid    = document.getElementById('params-grid');
+
+    // Hiperparâmetros do Optuna (se disponíveis)
+    if (m.optuna_best_params && Object.keys(m.optuna_best_params).length) {
+      paramsSection.style.display = '';
+      Object.entries(m.optuna_best_params).forEach(([k, v]) => {
+        const display = typeof v === 'number'
+          ? (Number.isInteger(v) ? v : v.toPrecision(5))
+          : v;
+        paramsGrid.innerHTML += `
+          <div class="param-row">
+            <span class="param-key">${k}</span>
+            <span class="param-val">${display}</span>
+          </div>`;
+      });
+    } else {
+      // Fallback: resumo do treino
+      paramsSection.style.display = '';
+      paramsSection.querySelector('.section-title').textContent = 'Resumo de Treinamento';
+      [
+        { k: 'n_train_samples', v: fmtN(m.n_train_samples) },
+        { k: 'n_test_samples',  v: fmtN(m.n_test_samples)  },
+        { k: 'model_size_mb',   v: m.model_size_mb + ' MB' },
+        { k: 'deploy_model',    v: m.deploy_model           },
+      ].forEach(({ k, v }) => {
+        paramsGrid.innerHTML += `
+          <div class="param-row">
+            <span class="param-key">${k}</span>
+            <span class="param-val">${v}</span>
+          </div>`;
+      });
+    }
+
+  } catch (err) {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('error').style.display   = '';
+    console.error(err);
+  }
+})();
+</script>
+</body>
+</html>

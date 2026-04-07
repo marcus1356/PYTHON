@@ -27,6 +27,7 @@ class ModelMetrics(BaseModel):
     test_roc_auc: float
     test_brier: float
     optuna_best_auc: float | None = None
+    optuna_best_params: dict | None = None
     model_size_mb: float
     model_file: str
 
@@ -83,6 +84,7 @@ def get_metrics():
                 test_roc_auc=m["test_roc_auc"],
                 test_brier=m["test_brier"],
                 optuna_best_auc=m.get("optuna_best_auc"),
+                optuna_best_params=m.get("optuna_best_params"),
                 model_size_mb=size_mb,
                 model_file=model_file.name,
             )
