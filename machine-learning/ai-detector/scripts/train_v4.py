@@ -86,10 +86,10 @@ sns.set_theme(style="darkgrid", palette="muted")
 SEED          = 42
 MAX_TEXT_LEN  = 4000
 MIN_TEXT_LEN  = 50
-SAMPLE_RAID   = 50_000
-SAMPLE_PILE   = 30_000   # Pile é texto humano puro (label=0)
+SAMPLE_RAID   = 200_000
+SAMPLE_PILE   = 40_000   # Pile é texto humano puro (label=0)
 SAMPLE_HC3    = None
-SAMPLE_MAGE   = 40_000
+SAMPLE_MAGE   = 80_000
 OPTUNA_TRIALS = 100
 
 rng = np.random.default_rng(SEED)
