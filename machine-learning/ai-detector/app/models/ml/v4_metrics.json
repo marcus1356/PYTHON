@@ -1,0 +1,53 @@
+{
+  "model_version": "v4",
+  "n_features": 20,
+  "feature_names": [
+    "avg_sentence_length",
+    "vocabulary_richness",
+    "burstiness",
+    "punctuation_density",
+    "avg_word_length",
+    "transition_word_density",
+    "first_person_ratio",
+    "hedge_word_ratio",
+    "question_density",
+    "bigram_repetition_score",
+    "lexical_diversity_entropy",
+    "hapax_legomena_ratio",
+    "readability_fog",
+    "stopword_ratio",
+    "sentence_length_variance",
+    "comma_density",
+    "unique_trigrams_ratio",
+    "pos_noun_ratio",
+    "coherence_score",
+    "exclamation_ratio"
+  ],
+  "n_train_samples": 190154,
+  "n_test_samples": 47539,
+  "datasets_used": [
+    "raid",
+    "ai-detection-pile",
+    "hc3",
+    "mage"
+  ],
+  "deploy_model": "CalibratedXGBoost",
+  "test_accuracy": 0.7844506615620859,
+  "test_f1_weighted": 0.7843470105247622,
+  "test_roc_auc": 0.8650892470056195,
+  "test_brier": 0.1636861059112259,
+  "baseline_v3_acc": null,
+  "improvement_vs_v3": null,
+  "optuna_best_auc": 0.86726,
+  "optuna_best_params": {
+    "n_estimators": 762,
+    "learning_rate": 0.048588772011593354,
+    "max_depth": 10,
+    "subsample": 0.7997700610298202,
+    "colsample_bytree": 0.9093057923859031,
+    "reg_alpha": 1.286497131033996,
+    "reg_lambda": 0.00288679076892098,
+    "min_child_weight": 8,
+    "gamma": 1.0470737950960085
+  }
+}

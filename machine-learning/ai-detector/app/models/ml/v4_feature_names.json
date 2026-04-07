@@ -1,0 +1,22 @@
+[
+  "avg_sentence_length",
+  "vocabulary_richness",
+  "burstiness",
+  "punctuation_density",
+  "avg_word_length",
+  "transition_word_density",
+  "first_person_ratio",
+  "hedge_word_ratio",
+  "question_density",
+  "bigram_repetition_score",
+  "lexical_diversity_entropy",
+  "hapax_legomena_ratio",
+  "readability_fog",
+  "stopword_ratio",
+  "sentence_length_variance",
+  "comma_density",
+  "unique_trigrams_ratio",
+  "pos_noun_ratio",
+  "coherence_score",
+  "exclamation_ratio"
+]
