@@ -18,5 +18,8 @@
   "unique_trigrams_ratio",
   "pos_noun_ratio",
   "coherence_score",
-  "exclamation_ratio"
+  "exclamation_ratio",
+  "embedding_sim_human",
+  "embedding_sim_ai",
+  "embedding_delta"
 ]

@@ -1,6 +1,6 @@
 {
   "model_version": "v4",
-  "n_features": 20,
+  "n_features": 23,
   "feature_names": [
     "avg_sentence_length",
     "vocabulary_richness",
@@ -21,7 +21,10 @@
     "unique_trigrams_ratio",
     "pos_noun_ratio",
     "coherence_score",
-    "exclamation_ratio"
+    "exclamation_ratio",
+    "embedding_sim_human",
+    "embedding_sim_ai",
+    "embedding_delta"
   ],
   "n_train_samples": 381574,
   "n_test_samples": 95394,
@@ -32,22 +35,22 @@
     "mage"
   ],
   "deploy_model": "CalibratedXGBoost",
-  "test_accuracy": 0.7944000670901734,
-  "test_f1_weighted": 0.7937933563978214,
-  "test_roc_auc": 0.871392154727292,
-  "test_brier": 0.1562025274983794,
+  "test_accuracy": 0.8143069794746001,
+  "test_f1_weighted": 0.8137310822769639,
+  "test_roc_auc": 0.8920971659824937,
+  "test_brier": 0.14069425091027005,
   "baseline_v3_acc": 0.4897,
-  "improvement_vs_v3": 0.3047000670901734,
-  "optuna_best_auc": 0.8702408031603532,
+  "improvement_vs_v3": 0.32460697947460004,
+  "optuna_best_auc": 0.8907932205693647,
   "optuna_best_params": {
-    "n_estimators": 838,
-    "learning_rate": 0.05320202950596357,
+    "n_estimators": 977,
+    "learning_rate": 0.03791981137619004,
     "max_depth": 10,
-    "subsample": 0.7407404778256875,
-    "colsample_bytree": 0.8240019549909205,
-    "reg_alpha": 1.1054474515332497,
-    "reg_lambda": 0.00041453540632011,
-    "min_child_weight": 3,
-    "gamma": 0.9079474383739341
+    "subsample": 0.7753709243352113,
+    "colsample_bytree": 0.8775287878026291,
+    "reg_alpha": 0.4530867227001534,
+    "reg_lambda": 0.3269194464973658,
+    "min_child_weight": 4,
+    "gamma": 0.20616419278193981
   }
 }

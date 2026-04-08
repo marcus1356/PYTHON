@@ -92,6 +92,10 @@ SAMPLE_HC3    = None
 SAMPLE_MAGE   = 80_000
 OPTUNA_TRIALS = 100
 
+EMBEDDING_MODEL   = "sentence-transformers/all-MiniLM-L6-v2"
+EMBED_BATCH_SIZE  = 512
+N_CENTROID_SAMPLE = 8_000
+
 rng = np.random.default_rng(SEED)
 
 # ===========================================================================
@@ -353,9 +357,14 @@ FEATURE_NAMES_V4 = FEATURE_NAMES + [
     "pos_noun_ratio",
     "coherence_score",
     "exclamation_ratio",
+    # embedding features (sentence-transformers/all-MiniLM-L6-v2)
+    "embedding_sim_human",
+    "embedding_sim_ai",
+    "embedding_delta",
 ]
-N_FEATURES_V4 = len(FEATURE_NAMES_V4)
-log.info("Features v4: %d total (%d novas)", N_FEATURES_V4, N_FEATURES_V4 - N_FEATURES_V3)
+N_FEATURES_V4   = len(FEATURE_NAMES_V4)   # 23
+N_FEATURES_BASE = N_FEATURES_V4 - 3       # 20 (sem embedding)
+log.info("Features v4: %d total (%d base + 3 embedding)", N_FEATURES_V4, N_FEATURES_BASE)
 
 
 def _extract_safe_v3(text: str) -> list[float]:
@@ -380,7 +389,77 @@ def extract_features_v4(text: str) -> list[float]:
     return v3 + new_feats
 
 # ===========================================================================
-# 3. EXTRAÇÃO PARALELA COM CHECKPOINT
+# 3. EMBEDDING HELPERS
+# ===========================================================================
+
+def _get_embed_model():
+    """Carrega sentence-transformer (all-MiniLM-L6-v2, ~80MB)."""
+    from sentence_transformers import SentenceTransformer
+    log.info("Carregando modelo de embeddings: %s ...", EMBEDDING_MODEL)
+    model = SentenceTransformer(EMBEDDING_MODEL)
+    log.info("  Embedding model pronto.")
+    return model
+
+
+def _embed_texts(texts: list[str], model) -> np.ndarray:
+    """Embeds texts em batches; retorna (N, 384) float32 normalizado."""
+    all_embs = []
+    for i in range(0, len(texts), EMBED_BATCH_SIZE):
+        batch = texts[i : i + EMBED_BATCH_SIZE]
+        embs  = model.encode(
+            batch, batch_size=EMBED_BATCH_SIZE,
+            show_progress_bar=False, convert_to_numpy=True,
+            normalize_embeddings=True,
+        )
+        all_embs.append(embs)
+    return np.vstack(all_embs).astype(np.float32)
+
+
+def compute_and_save_centroids(
+    texts: list[str], labels: np.ndarray, model
+) -> tuple[np.ndarray, np.ndarray]:
+    """Computa centroides normalizados de cada classe e salva em .npy."""
+    rng_c = np.random.default_rng(SEED)
+    human_texts = [t for t, l in zip(texts, labels) if l == 0]
+    ai_texts    = [t for t, l in zip(texts, labels) if l == 1]
+
+    if len(human_texts) > N_CENTROID_SAMPLE:
+        idxs = rng_c.choice(len(human_texts), N_CENTROID_SAMPLE, replace=False)
+        human_texts = [human_texts[i] for i in idxs]
+    if len(ai_texts) > N_CENTROID_SAMPLE:
+        idxs = rng_c.choice(len(ai_texts), N_CENTROID_SAMPLE, replace=False)
+        ai_texts = [ai_texts[i] for i in idxs]
+
+    log.info("Computando centroides: %d human + %d AI textos...", len(human_texts), len(ai_texts))
+    h_embs = _embed_texts(human_texts, model)
+    a_embs = _embed_texts(ai_texts,    model)
+
+    h_centroid = h_embs.mean(axis=0)
+    a_centroid = a_embs.mean(axis=0)
+    h_centroid /= np.linalg.norm(h_centroid)
+    a_centroid /= np.linalg.norm(a_centroid)
+
+    np.save(MODELS_DIR / "v4_human_centroid.npy", h_centroid)
+    np.save(MODELS_DIR / "v4_ai_centroid.npy",    a_centroid)
+    log.info("  Centroides salvos (dim=%d).", h_centroid.shape[0])
+    return h_centroid, a_centroid
+
+
+def add_embedding_features(
+    X_base: np.ndarray, texts: list[str],
+    h_centroid: np.ndarray, a_centroid: np.ndarray, model,
+) -> np.ndarray:
+    """Computa 3 features de similaridade e concatena em X_base."""
+    log.info("Computando embedding features para %d textos...", len(texts))
+    embs  = _embed_texts(texts, model)          # ja normalizados
+    sim_h = (embs @ h_centroid).reshape(-1, 1)
+    sim_a = (embs @ a_centroid).reshape(-1, 1)
+    delta = (sim_a - sim_h).reshape(-1, 1)
+    return np.hstack([X_base, sim_h, sim_a, delta]).astype(np.float32)
+
+
+# ===========================================================================
+# 4. EXTRAÇÃO PARALELA COM CHECKPOINT
 # ===========================================================================
 
 def extract_all_features(df_all: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
@@ -389,20 +468,36 @@ def extract_all_features(df_all: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
     CHECKPOINT_PATH = MODELS_DIR / "v4_features_checkpoint.npz"
     BATCH_SIZE = 10_000
 
-    if CHECKPOINT_PATH.exists():
-        log.info("Checkpoint encontrado - carregando features salvas...")
-        ckpt = np.load(CHECKPOINT_PATH)
-        X_v4 = ckpt["X"].astype(np.float32)
-        y_v4 = ckpt["y"]
-        log.info("   Carregados: %d amostras x %d features", X_v4.shape[0], X_v4.shape[1])
-        return X_v4, y_v4
-
     texts  = df_all["text"].tolist()
     labels = df_all["label"].values
-    n      = len(texts)
-    n_batches = (n + BATCH_SIZE - 1) // BATCH_SIZE
 
-    log.info("Extraindo %d features de %d textos em %d batches...", N_FEATURES_V4, n, n_batches)
+    if CHECKPOINT_PATH.exists():
+        ckpt   = np.load(CHECKPOINT_PATH)
+        X_ckpt = ckpt["X"].astype(np.float32)
+        y_ckpt = ckpt["y"]
+        n_feat = X_ckpt.shape[1]
+
+        if n_feat == N_FEATURES_V4:
+            log.info("Checkpoint valido (%d features) - carregando...", N_FEATURES_V4)
+            return X_ckpt, y_ckpt
+
+        elif n_feat == N_FEATURES_BASE:
+            # Checkpoint base (20 features) - augmentar com embedding features
+            log.info("Checkpoint base (%d features) - adicionando 3 embedding features...", n_feat)
+            embed_model = _get_embed_model()
+            h_c, a_c   = compute_and_save_centroids(texts, y_ckpt, embed_model)
+            X_v4       = add_embedding_features(X_ckpt, texts, h_c, a_c, embed_model)
+            np.savez_compressed(CHECKPOINT_PATH, X=X_v4, y=y_ckpt)
+            log.info("Checkpoint atualizado: %d features.", X_v4.shape[1])
+            return X_v4, y_ckpt
+
+        else:
+            log.warning("Checkpoint incompativel (%d features, esperado %d) - recalculando.",
+                        n_feat, N_FEATURES_V4)
+
+    n         = len(texts)
+    n_batches = (n + BATCH_SIZE - 1) // BATCH_SIZE
+    log.info("Extraindo %d features base de %d textos em %d batches...", N_FEATURES_BASE, n, n_batches)
     all_feats = []
     t0 = time.time()
 
@@ -420,12 +515,17 @@ def extract_all_features(df_all: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
         eta     = elapsed / pct * (100 - pct) if pct > 0 else 0
         log.info("  Batch %d/%d: %d/%d (%.1f%%)  ETA: %.0fs", i + 1, n_batches, end, n, pct, eta)
 
-    X_v4 = np.array(all_feats, dtype=np.float32)
-    y_v4 = labels
+    X_base = np.array(all_feats, dtype=np.float32)
 
-    np.savez_compressed(CHECKPOINT_PATH, X=X_v4, y=y_v4)
-    log.info("Extração concluída em %.1f min. Checkpoint salvo.", (time.time() - t0) / 60)
-    return X_v4, y_v4
+    # Adicionar embedding features
+    embed_model = _get_embed_model()
+    h_c, a_c   = compute_and_save_centroids(texts, labels, embed_model)
+    X_v4       = add_embedding_features(X_base, texts, h_c, a_c, embed_model)
+
+    np.savez_compressed(CHECKPOINT_PATH, X=X_v4, y=labels)
+    log.info("Extracao concluida em %.1f min. Checkpoint salvo (%d features).",
+             (time.time() - t0) / 60, X_v4.shape[1])
+    return X_v4, labels
 
 # ===========================================================================
 # 4. AVALIAÇÃO BASELINE v3
@@ -678,7 +778,7 @@ def train_all(X_v4: np.ndarray, y_v4: np.ndarray, acc_v3: float) -> dict:
         f1    = f1_score(y_test, preds, average="weighted")
         auc   = roc_auc_score(y_test, probs)
         brier = brier_score_loss(y_test, probs)
-        flag  = " ◄" if acc > best_acc else ""
+        flag  = " <--" if acc > best_acc else ""
         log.info("  %-30s %10.4f %10.4f %10.4f %8.4f%s", name, acc, f1, auc, brier, flag)
         if acc > best_acc:
             best_acc = acc
@@ -825,16 +925,26 @@ if __name__ == "__main__":
     log.info("ROOT: %s", ROOT)
     log.info("=" * 60)
 
-    # 1–3. Datasets + features (com checkpoint)
+    # 1-3. Datasets + features (com checkpoint)
     _CKPT = MODELS_DIR / "v4_features_checkpoint.npz"
+    _skip_datasets = False
+
     if _CKPT.exists():
-        log.info("Checkpoint encontrado - pulando carregamento de datasets e extração.")
-        _ckpt = np.load(_CKPT)
-        X_v4  = _ckpt["X"].astype(np.float32)
-        y_v4  = _ckpt["y"]
-        log.info("   Carregados do checkpoint: %d amostras x %d features", X_v4.shape[0], X_v4.shape[1])
-        acc_v3 = 0.0  # baseline já foi avaliado na run anterior
-    else:
+        _ckpt_tmp = np.load(_CKPT)
+        _ckpt_n   = _ckpt_tmp["X"].shape[1]
+        if _ckpt_n == N_FEATURES_V4:
+            # Checkpoint completo — pula tudo
+            log.info("Checkpoint completo (%d features) - pulando datasets e extracao.", N_FEATURES_V4)
+            X_v4  = _ckpt_tmp["X"].astype(np.float32)
+            y_v4  = _ckpt_tmp["y"]
+            log.info("   Carregados: %d amostras x %d features", X_v4.shape[0], X_v4.shape[1])
+            acc_v3 = 0.0
+            _skip_datasets = True
+        else:
+            log.info("Checkpoint com %d features (esperado %d) - carregando datasets para augmentacao.",
+                     _ckpt_n, N_FEATURES_V4)
+
+    if not _skip_datasets:
         df_all = load_datasets()
         acc_v3 = eval_baseline_v3(df_all)
         X_v4, y_v4 = extract_all_features(df_all)

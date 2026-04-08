@@ -50,13 +50,20 @@ CASCADE_VERSION = "cascade-v1"
 
 _ML_DIR = Path(__file__).resolve().parent.parent / "models" / "ml"
 _RF_V3_PATH = _ML_DIR / "detector_v3_rf.joblib"
-_RF_V4_PATH = _ML_DIR / "detector_v4_best.joblib"      # modelo com 12 features
+_RF_V4_PATH = _ML_DIR / "detector_v4_best.joblib"
 _RF_HC3_PATH = _ML_DIR / "detector_hc3_rf.joblib"    # fallback com 5 features
+
+_HUMAN_CENTROID_PATH = _ML_DIR / "v4_human_centroid.npy"
+_AI_CENTROID_PATH    = _ML_DIR / "v4_ai_centroid.npy"
 
 # Cache em memória
 _rf_model = None
 _rf_n_features: int = 0  # quantas features o modelo carregado espera
 _rf_uses_v4: bool = False
+
+_embed_model          = None   # sentence-transformers SentenceTransformer
+_embed_human_centroid = None   # np.ndarray (384,)
+_embed_ai_centroid    = None   # np.ndarray (384,)
 
 # ---------------------------------------------------------------------------
 # Palavras características por categoria
@@ -428,7 +435,7 @@ FEATURE_NAMES = [
 N_FEATURES_V3 = 12
 N_FEATURES_V1 = 5
 
-# v4: 20 features (12 originais + 8 novas)
+# v4: 23 features (12 originais + 8 novas + 3 embedding)
 FEATURE_NAMES_V4 = FEATURE_NAMES + [
     "readability_fog",           # 12
     "stopword_ratio",            # 13
@@ -438,8 +445,11 @@ FEATURE_NAMES_V4 = FEATURE_NAMES + [
     "pos_noun_ratio",            # 17
     "coherence_score",           # 18
     "exclamation_ratio",         # 19
+    "embedding_sim_human",       # 20
+    "embedding_sim_ai",          # 21
+    "embedding_delta",           # 22
 ]
-N_FEATURES_V4 = len(FEATURE_NAMES_V4)
+N_FEATURES_V4 = len(FEATURE_NAMES_V4)   # 23
 
 
 
@@ -466,7 +476,7 @@ def extract_features(text: str, n_features: int = N_FEATURES_V3) -> list[float]:
 
 def extract_features_v4(text: str) -> list[float]:
     """
-    Extrai as 20 features do modelo v4.
+    Extrai as 23 features do modelo v4 (20 base + 3 embedding).
     Compatível com CalibratedXGBoost salvo em detector_v4_best.joblib.
     """
     base = extract_features(text, n_features=N_FEATURES_V3)
@@ -480,7 +490,8 @@ def extract_features_v4(text: str) -> list[float]:
         compute_coherence_score(text),
         compute_exclamation_ratio(text),
     ]
-    return [round(v, 6) for v in base + new_feats]
+    emb_feats = _compute_embedding_features(text)
+    return [round(v, 6) for v in base + new_feats] + emb_feats
 
 
 
@@ -548,13 +559,53 @@ def _confidence(score: float) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Embedding helpers (sentence-transformers/all-MiniLM-L6-v2)
+# ---------------------------------------------------------------------------
+
+def _load_embed_model() -> bool:
+    """Lazy-carrega o sentence-transformer e os centroides. Retorna True se ok."""
+    global _embed_model, _embed_human_centroid, _embed_ai_centroid
+    if _embed_model is not None:
+        return True
+    try:
+        import numpy as np
+        from sentence_transformers import SentenceTransformer
+        if not _HUMAN_CENTROID_PATH.exists() or not _AI_CENTROID_PATH.exists():
+            return False
+        _embed_model          = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+        _embed_human_centroid = np.load(_HUMAN_CENTROID_PATH)
+        _embed_ai_centroid    = np.load(_AI_CENTROID_PATH)
+        logger.info("Embedding model carregado (all-MiniLM-L6-v2) + centroides v4.")
+        return True
+    except Exception as exc:
+        logger.warning("Embedding model nao disponivel: %s", exc)
+        return False
+
+
+def _compute_embedding_features(text: str) -> list[float]:
+    """Retorna [sim_human, sim_ai, delta] ou [0,0,0] se modelo indisponivel."""
+    if not _load_embed_model():
+        return [0.0, 0.0, 0.0]
+    try:
+        import numpy as np
+        emb   = _embed_model.encode([text], normalize_embeddings=True,
+                                    show_progress_bar=False)[0]
+        sim_h = float(emb @ _embed_human_centroid)
+        sim_a = float(emb @ _embed_ai_centroid)
+        return [round(sim_h, 6), round(sim_a, 6), round(sim_a - sim_h, 6)]
+    except Exception as exc:
+        logger.warning("Embedding inference falhou: %s", exc)
+        return [0.0, 0.0, 0.0]
+
+
+# ---------------------------------------------------------------------------
 # Camada 2 — Random Forest (com auto-detecção de versão)
 # ---------------------------------------------------------------------------
 
 def _load_rf():
     """
     Carrega o melhor modelo RF disponível com cache em memória.
-    Preferência: v4 (20 features) > v3 (12 features) > HC3 (5 features).
+    Preferência: v4 (23 features) > v3 (12 features) > HC3 (5 features).
     """
     global _rf_model, _rf_n_features, _rf_uses_v4
     if _rf_model is not None:
@@ -567,7 +618,7 @@ def _load_rf():
             _rf_model      = joblib.load(_RF_V4_PATH)
             _rf_n_features = N_FEATURES_V4
             _rf_uses_v4    = True
-            logger.info("Modelo v4 carregado: %s (20 features)", _RF_V4_PATH.name)
+            logger.info("Modelo v4 carregado: %s (%d features)", _RF_V4_PATH.name, N_FEATURES_V4)
             return _rf_model
         except Exception as exc:
             logger.warning("Falha ao carregar v4, voltando para v3: %s", exc)
