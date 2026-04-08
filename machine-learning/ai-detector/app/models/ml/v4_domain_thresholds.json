@@ -1,0 +1,26 @@
+{
+  "default": {
+    "threshold": 0.5,
+    "f1": 0.8137,
+    "auc": 0.8921,
+    "n_samples": 95394
+  },
+  "news": {
+    "threshold": 0.5,
+    "f1": 0.7904,
+    "auc": 0.8711,
+    "n_samples": 29056
+  },
+  "social": {
+    "threshold": 0.41,
+    "f1": 0.8282,
+    "auc": 0.8997,
+    "n_samples": 6239
+  },
+  "general": {
+    "threshold": 0.55,
+    "f1": 0.8241,
+    "auc": 0.9006,
+    "n_samples": 60005
+  }
+}

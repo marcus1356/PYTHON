@@ -53,8 +53,9 @@ _RF_V3_PATH = _ML_DIR / "detector_v3_rf.joblib"
 _RF_V4_PATH = _ML_DIR / "detector_v4_best.joblib"
 _RF_HC3_PATH = _ML_DIR / "detector_hc3_rf.joblib"    # fallback com 5 features
 
-_HUMAN_CENTROID_PATH = _ML_DIR / "v4_human_centroid.npy"
-_AI_CENTROID_PATH    = _ML_DIR / "v4_ai_centroid.npy"
+_HUMAN_CENTROID_PATH   = _ML_DIR / "v4_human_centroid.npy"
+_AI_CENTROID_PATH      = _ML_DIR / "v4_ai_centroid.npy"
+_DOMAIN_THRESHOLDS_PATH = _ML_DIR / "v4_domain_thresholds.json"
 
 # Cache em memória
 _rf_model = None
@@ -64,6 +65,8 @@ _rf_uses_v4: bool = False
 _embed_model          = None   # sentence-transformers SentenceTransformer
 _embed_human_centroid = None   # np.ndarray (384,)
 _embed_ai_centroid    = None   # np.ndarray (384,)
+
+_domain_thresholds: dict | None = None  # thresholds por domínio
 
 # ---------------------------------------------------------------------------
 # Palavras características por categoria
@@ -542,20 +545,74 @@ def _heuristic_score(features: list[float]) -> float:
     return min(score, 1.0)
 
 
-def _verdict(score: float) -> str:
-    if score >= 0.60:
+def _verdict(score: float, threshold: float = 0.5) -> str:
+    band = 0.10
+    if score >= threshold + band:
         return "ai"
-    if score <= 0.40:
+    if score <= threshold - band:
         return "human"
     return "uncertain"
 
 
-def _confidence(score: float) -> str:
-    if score < 0.30 or score > 0.70:
+def _confidence(score: float, threshold: float = 0.5) -> str:
+    dist = abs(score - threshold)
+    if dist > 0.20:
         return "high"
-    if 0.45 <= score <= 0.55:
+    if dist < 0.05:
         return "low"
     return "medium"
+
+
+# ---------------------------------------------------------------------------
+# Domain threshold calibration
+# ---------------------------------------------------------------------------
+
+def _load_domain_thresholds() -> dict:
+    """Carrega thresholds por domínio (lazy, singleton)."""
+    global _domain_thresholds
+    if _domain_thresholds is not None:
+        return _domain_thresholds
+    try:
+        import json
+        if _DOMAIN_THRESHOLDS_PATH.exists():
+            with open(_DOMAIN_THRESHOLDS_PATH) as f:
+                _domain_thresholds = json.load(f)
+            logger.info("Domain thresholds carregados: %s", list(_domain_thresholds.keys()))
+        else:
+            _domain_thresholds = {"default": {"threshold": 0.5}}
+    except Exception as exc:
+        logger.warning("Falha ao carregar domain thresholds: %s", exc)
+        _domain_thresholds = {"default": {"threshold": 0.5}}
+    return _domain_thresholds
+
+
+def classify_domain(features: list[float]) -> str:
+    """
+    Classifica o domínio textual com base nas features v4.
+    academic / news / social / general
+    """
+    if len(features) < 20:
+        return "general"
+    avg_sl = features[0]    # avg_sentence_length
+    vocab  = features[1]    # vocabulary_richness
+    fp     = features[6]    # first_person_ratio
+    hedge  = features[7]    # hedge_word_ratio
+    excl   = features[19]   # exclamation_ratio
+
+    if avg_sl > 22 and vocab > 0.52 and hedge > 0.035 and excl < 0.02:
+        return "academic"
+    if avg_sl < 14 and (excl > 0.06 or fp > 0.12):
+        return "social"
+    if 14 <= avg_sl <= 23 and fp < 0.025 and excl < 0.015:
+        return "news"
+    return "general"
+
+
+def _domain_threshold(domain: str) -> float:
+    """Retorna o threshold de decisão para o domínio dado."""
+    td = _load_domain_thresholds()
+    entry = td.get(domain) or td.get("default") or {"threshold": 0.5}
+    return float(entry["threshold"])
 
 
 # ---------------------------------------------------------------------------
@@ -707,21 +764,26 @@ def analyze_with_cascade(text: str) -> dict:
         final_score = round(h_score, 4)
         used_version = CASCADE_VERSION
 
-    elapsed_ms = int((time.perf_counter() - start) * 1000)
-    needs_claude = abs(final_score - 0.5) < 0.15
+    domain    = classify_domain(features) if _rf_uses_v4 else "general"
+    threshold = _domain_threshold(domain)
+
+    elapsed_ms   = int((time.perf_counter() - start) * 1000)
+    needs_claude = abs(final_score - threshold) < 0.15
 
     # Dict de features nomeadas para interpretabilidade
     named_features = {FEATURE_NAMES[i]: features[i] for i in range(len(features))}
 
     return {
         "ai_probability_score": final_score,
-        "confidence_level": _confidence(final_score),
-        "verdict": _verdict(final_score),
+        "confidence_level": _confidence(final_score, threshold),
+        "verdict": _verdict(final_score, threshold),
         "needs_claude": needs_claude,
         "heuristic_score": round(h_score, 4),
         "ml_score": round(rf_prob, 4) if rf_prob is not None else None,
         "features": features,
         "named_features": named_features,
+        "domain": domain,
+        "threshold_used": threshold,
         "model_version": used_version,
         "processing_time_ms": elapsed_ms,
     }
